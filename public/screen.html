@@ -65,6 +65,13 @@
             text-align: center;
             min-height: 150px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+            transition: all 0.3s ease;
+        }
+
+        .option-box.correct {
+            background-color: #008800;
+            border-color: #00ff00;
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.6);
         }
 
         /* Timer */
@@ -122,8 +129,8 @@
     </div>
 
     <div id="game-over-view" class="view">
-        <h1 class="huge-title" style="margin-bottom: 1rem;">Game Over!</h1>
-        <h2 class="sub-text">Final Rankings</h2>
+        <h1 id="screen-game-over-title" class="huge-title" style="margin-bottom: 1rem;">Game Over!</h1>
+        <h2 id="screen-game-over-subtitle" class="sub-text">Final Rankings</h2>
         <ul class="leaderboard-list" id="final-leaderboard">
             <!-- Leaderboard injected here -->
         </ul>
@@ -141,11 +148,11 @@
         
         const questionText = document.getElementById('question-text');
         const optionsContainer = document.getElementById('options-container');
-        const timeLeftSpan = document.getElementById('time-left');
         const waitingMsg = document.getElementById('waiting-msg');
         const finalLeaderboard = document.getElementById('final-leaderboard');
 
         let localTimerInterval;
+        let waitTimeout;
 
         function switchView(viewName) {
             Object.values(views).forEach(v => v.classList.remove('active'));
@@ -153,16 +160,21 @@
         }
 
         socket.on('game_started', () => {
+            clearTimeout(waitTimeout);
             switchView('waiting');
             waitingMsg.innerHTML = "Game is starting!<br>Get ready...";
         });
 
         socket.on('new_question', (questionData) => {
+            clearTimeout(waitTimeout);
             switchView('question');
             questionText.textContent = questionData.text;
             optionsContainer.innerHTML = '';
             
             clearInterval(localTimerInterval);
+            document.getElementById('timer-container').innerHTML = '<span id="time-left"></span>s';
+            const timeLeftSpan = document.getElementById('time-left');
+            
             let timeLeft = questionData.timeLimit || 15;
             timeLeftSpan.textContent = timeLeft;
             
@@ -180,16 +192,27 @@
             });
         });
 
-        socket.on('question_ended', () => {
+        socket.on('question_ended', (data) => {
             clearInterval(localTimerInterval);
-            switchView('waiting');
-            waitingMsg.innerHTML = "Time's Up!<br>Waiting for the next question...";
+            document.getElementById('timer-container').innerHTML = "Time's Up!";
+            
+            if (data && data.correctIndex) {
+                const optionBoxes = document.querySelectorAll('.option-box');
+                data.correctIndex.forEach(idx => {
+                    if (optionBoxes[idx]) {
+                        optionBoxes[idx].classList.add('correct');
+                    }
+                });
+            }
+
+            clearTimeout(waitTimeout);
+            waitTimeout = setTimeout(() => {
+                switchView('waiting');
+                waitingMsg.innerHTML = "Waiting for the next question...";
+            }, 10000);
         });
 
-        socket.on('game_over', (leaderboard) => {
-            clearInterval(localTimerInterval);
-            switchView('gameOver');
-            
+        function renderLeaderboard(leaderboard) {
             finalLeaderboard.innerHTML = '';
             leaderboard.slice(0, 10).forEach((player, index) => { // show top 10 on big screen
                 const li = document.createElement('li');
@@ -217,6 +240,24 @@
                 li.innerHTML = `<span>... and ${leaderboard.length - 10} more players!</span>`;
                 finalLeaderboard.appendChild(li);
             }
+        }
+
+        socket.on('game_over', (leaderboard) => {
+            clearTimeout(waitTimeout);
+            clearInterval(localTimerInterval);
+            switchView('gameOver');
+            document.getElementById('screen-game-over-title').textContent = 'Game Over!';
+            document.getElementById('screen-game-over-subtitle').textContent = 'Final Rankings';
+            renderLeaderboard(leaderboard);
+        });
+
+        socket.on('show_midgame_leaderboard', (leaderboard) => {
+            clearTimeout(waitTimeout);
+            clearInterval(localTimerInterval);
+            switchView('gameOver');
+            document.getElementById('screen-game-over-title').textContent = 'Current Standings';
+            document.getElementById('screen-game-over-subtitle').textContent = 'Mid-Game Leaderboard';
+            renderLeaderboard(leaderboard);
         });
     </script>
 </body>

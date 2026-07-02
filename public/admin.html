@@ -146,6 +146,7 @@
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
                     <button id="start-game-btn" class="primary-btn">Start / Replay Game</button>
                     <button id="next-question-btn" class="primary-btn" style="background-color: #0066cc;">Push Next Question</button>
+                    <button id="show-leaderboard-btn" class="secondary-btn" style="background-color: #cc6600; font-weight: bold; padding: 12px 20px;">Show Leaderboard</button>
                 </div>
             </div>
 
@@ -444,6 +445,10 @@
 
         document.getElementById('next-question-btn').addEventListener('click', () => {
             socket.emit('admin_next_question');
+        });
+
+        document.getElementById('show-leaderboard-btn').addEventListener('click', () => {
+            socket.emit('admin_show_leaderboard');
         });
     </script>
 </body>

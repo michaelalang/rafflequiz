@@ -140,6 +140,10 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('admin_show_leaderboard', () => {
+        io.emit('show_midgame_leaderboard', getLeaderboard());
+    });
+
     // Simple add/edit
     socket.on('admin_save_question', (data) => {
         if (data.index !== null && data.index !== undefined && data.index >= 0) {
