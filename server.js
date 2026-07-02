@@ -16,6 +16,7 @@ let currentQuestionIndex = -1;
 let questionStartTime = 0;
 let questionTimer = null;
 let gameOverTimer = null;
+let isGameOver = false;
 const QUESTION_TIME_LIMIT = 15; 
 
 // --- Helper Functions ---
@@ -63,6 +64,9 @@ io.on('connection', (socket) => {
     socket.emit('update_questions_list', questions);
     socket.emit('update_player_count', Object.keys(players).length);
     socket.emit('waiting_players_update', Object.values(players).map(p => p.name));
+    if (isGameOver) {
+        socket.emit('game_over', getLeaderboard());
+    }
 
     socket.on('join_game', (name) => {
         players[socket.id] = { id: socket.id, name: name, score: 0, totalTime: 0, currentAnswer: [] };
@@ -91,6 +95,7 @@ io.on('connection', (socket) => {
         clearTimeout(gameOverTimer);
         questionTimer = null;
         gameOverTimer = null;
+        isGameOver = false;
         currentQuestionIndex = -1;
         Object.values(players).forEach(p => { p.score = 0; p.totalTime = 0; p.currentAnswer = []; });
         io.emit('game_started');
@@ -127,6 +132,7 @@ io.on('connection', (socket) => {
 
                 if (currentQuestionIndex >= questions.length - 1) {
                     gameOverTimer = setTimeout(() => {
+                        isGameOver = true;
                         io.emit('game_over', getLeaderboard());
                     }, 5000);
                 }

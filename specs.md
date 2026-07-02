@@ -7,7 +7,7 @@ The Raffle Quiz Application is a lightweight, real-time, mobile-responsive web a
 * **Backend:** Node.js, Express.js
 * **Communication:** WebSockets (Socket.IO) for bi-directional, real-time data flow.
 * **Frontend:** HTML5, Vanilla JavaScript.
-* **UI Framework & Design:** PatternFly 4 CSS via CDN, styled with custom Red Hat corporate branding (Dark charcoal backgrounds, `#EE0000` accents).
+* **UI Framework & Design:** PatternFly 6 CSS via CDN, styled with custom Red Hat corporate branding (Dark charcoal backgrounds, `#EE0000` accents).
     * **Participant Client View:** Purpose-built, mobile-first design using 100% full-screen vertical layout flexbox constraints to optimize touchscreen targets.
     * **Admin Master Dashboard View:** Expanded inputs engineered for high density text readability on larger viewports.
 * **Libraries:** `qrcode.js` (Client-side dynamic QR code generation).
