@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Big Screen</title>
+    <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@4.224.2/patternfly.min.css" crossorigin="anonymous">
+    <style>
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #212427;
+            color: #ffffff;
+            font-family: var(--pf-global--FontFamily--sans-serif, sans-serif);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 5vh 5vw;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        h1, h2, h3 {
+            color: #ffffff;
+            text-align: center;
+        }
+
+        /* typography */
+        .big-text { font-size: 4rem; font-weight: bold; margin-bottom: 2rem; }
+        .huge-title { font-size: 5rem; font-weight: bold; margin-bottom: 3rem; color: #EE0000; }
+        .sub-text { font-size: 2.5rem; color: #d2d2d2; text-align: center; }
+
+        /* Question View */
+        #question-text { font-size: 3.5rem; font-weight: bold; margin-bottom: 3rem; text-align: center; line-height: 1.2; }
+        
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            width: 90%;
+            max-width: 1400px;
+        }
+
+        .option-box {
+            background-color: #333333;
+            border: 4px solid #555555;
+            border-radius: 16px;
+            padding: 2rem;
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 150px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+
+        /* Timer */
+        #timer-container {
+            margin-top: 3rem;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #ffcccc;
+            background: #440000;
+            padding: 1rem 3rem;
+            border-radius: 50px;
+            border: 4px solid #EE0000;
+        }
+
+        /* Leaderboard */
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            width: 80%;
+            max-width: 1000px;
+            margin-top: 2rem;
+        }
+
+        .leaderboard-item {
+            background-color: #333;
+            margin-bottom: 1rem;
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 2rem;
+            font-weight: bold;
+            border-left: 8px solid #555;
+        }
+        
+        .leaderboard-item.top-1 { border-left-color: #ffd700; background-color: #443a00; }
+        .leaderboard-item.top-2 { border-left-color: #c0c0c0; background-color: #333333; }
+        .leaderboard-item.top-3 { border-left-color: #cd7f32; background-color: #3a2512; }
+        
+    </style>
+</head>
+<body>
+
+    <div id="waiting-view" class="view active">
+        <h1 class="huge-title">Red Hat Live Quiz</h1>
+        <p class="sub-text" id="waiting-msg">Look at the main screen.<br>Waiting for the game to start...</p>
+    </div>
+
+    <div id="question-view" class="view">
+        <h2 id="question-text">Question goes here?</h2>
+        <div class="options-grid" id="options-container">
+            <!-- options will be injected here -->
+        </div>
+        <div id="timer-container"><span id="time-left">--</span>s</div>
+    </div>
+
+    <div id="game-over-view" class="view">
+        <h1 class="huge-title" style="margin-bottom: 1rem;">Game Over!</h1>
+        <h2 class="sub-text">Final Rankings</h2>
+        <ul class="leaderboard-list" id="final-leaderboard">
+            <!-- Leaderboard injected here -->
+        </ul>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const views = {
+            waiting: document.getElementById('waiting-view'),
+            question: document.getElementById('question-view'),
+            gameOver: document.getElementById('game-over-view')
+        };
+        
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const timeLeftSpan = document.getElementById('time-left');
+        const waitingMsg = document.getElementById('waiting-msg');
+        const finalLeaderboard = document.getElementById('final-leaderboard');
+
+        let localTimerInterval;
+
+        function switchView(viewName) {
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            if(views[viewName]) views[viewName].classList.add('active');
+        }
+
+        socket.on('game_started', () => {
+            switchView('waiting');
+            waitingMsg.innerHTML = "Game is starting!<br>Get ready...";
+        });
+
+        socket.on('new_question', (questionData) => {
+            switchView('question');
+            questionText.textContent = questionData.text;
+            optionsContainer.innerHTML = '';
+            
+            clearInterval(localTimerInterval);
+            let timeLeft = questionData.timeLimit || 15;
+            timeLeftSpan.textContent = timeLeft;
+            
+            localTimerInterval = setInterval(() => {
+                timeLeft--;
+                if(timeLeft >= 0) timeLeftSpan.textContent = timeLeft;
+                if(timeLeft <= 0) clearInterval(localTimerInterval);
+            }, 1000);
+
+            questionData.options.forEach((option, index) => {
+                const optDiv = document.createElement('div');
+                optDiv.className = 'option-box';
+                optDiv.textContent = option;
+                optionsContainer.appendChild(optDiv);
+            });
+        });
+
+        socket.on('question_ended', () => {
+            clearInterval(localTimerInterval);
+            switchView('waiting');
+            waitingMsg.innerHTML = "Time's Up!<br>Waiting for the next question...";
+        });
+
+        socket.on('game_over', (leaderboard) => {
+            clearInterval(localTimerInterval);
+            switchView('gameOver');
+            
+            finalLeaderboard.innerHTML = '';
+            leaderboard.slice(0, 10).forEach((player, index) => { // show top 10 on big screen
+                const li = document.createElement('li');
+                li.className = 'leaderboard-item';
+                if (index === 0) li.classList.add('top-1');
+                else if (index === 1) li.classList.add('top-2');
+                else if (index === 2) li.classList.add('top-3');
+                
+                let medal = "";
+                if (index === 0) medal = "🥇 ";
+                else if (index === 1) medal = "🥈 ";
+                else if (index === 2) medal = "🥉 ";
+                
+                li.innerHTML = `
+                    <span>${medal}#${index + 1} ${player.name}</span>
+                    <span>${player.score} pts (${player.totalTime.toFixed(2)}s)</span>
+                `;
+                finalLeaderboard.appendChild(li);
+            });
+            
+            if (leaderboard.length > 10) {
+                const li = document.createElement('li');
+                li.className = 'leaderboard-item';
+                li.style.justifyContent = 'center';
+                li.innerHTML = `<span>... and ${leaderboard.length - 10} more players!</span>`;
+                finalLeaderboard.appendChild(li);
+            }
+        });
+    </script>
+</body>
+</html>

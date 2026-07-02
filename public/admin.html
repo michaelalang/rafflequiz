@@ -134,6 +134,7 @@
         <h1>Quiz Master Dashboard</h1>
         <div style="display: flex; align-items: center; gap: 20px;">
             <button id="open-lobby-btn" class="secondary-btn" style="background-color: #008800; font-weight: bold; padding: 10px 20px;">Open Lobby (QR)</button>
+            <button id="open-screen-btn" class="secondary-btn" style="background-color: #0044cc; font-weight: bold; padding: 10px 20px;">Open Big Screen</button>
             <h2 style="margin:0;">Players Connected: <span id="player-count">0</span></h2>
         </div>
     </div>
@@ -148,11 +149,21 @@
                 </div>
             </div>
 
+            <div class="admin-panel" id="realtime-panel" style="display: none;">
+                <h3>Live Responses (<span id="rt-submitted">0</span> / <span id="rt-total">0</span> submitted)</h3>
+                <div id="rt-options" style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;"></div>
+            </div>
+
             <div class="admin-panel">
                 <h3>Live Question Pool <span style="font-size:0.9rem; font-weight:normal; color:#aaa;">(Click any item to edit)</span></h3>
                 <ul id="question-list">
                     <li><i>No questions added yet.</i></li>
                 </ul>
+            </div>
+
+            <div class="admin-panel" id="leaderboard-panel" style="display: none;">
+                <h3>Final Score Ranking</h3>
+                <ul id="admin-leaderboard" style="list-style: none; padding: 0;"></ul>
             </div>
         </div>
 
@@ -238,6 +249,64 @@
                 // Click to populate the editor form setup
                 li.addEventListener('click', () => loadQuestionIntoEditor(index));
                 questionList.appendChild(li);
+            });
+        });
+
+        socket.on('game_over', (leaderboard) => {
+            const panel = document.getElementById('leaderboard-panel');
+            const lbList = document.getElementById('admin-leaderboard');
+            panel.style.display = 'block';
+            document.getElementById('realtime-panel').style.display = 'none';
+            lbList.innerHTML = '';
+            leaderboard.forEach((player, index) => {
+                const li = document.createElement('li');
+                li.style.padding = '8px';
+                li.style.borderBottom = '1px solid #555';
+                li.textContent = `#${index + 1} - ${player.name} | Score: ${player.score} | Time: ${player.totalTime.toFixed(2)}s`;
+                lbList.appendChild(li);
+            });
+        });
+
+        socket.on('game_started', () => {
+            document.getElementById('leaderboard-panel').style.display = 'none';
+            document.getElementById('realtime-panel').style.display = 'none';
+        });
+
+        socket.on('admin_realtime_stats', (stats) => {
+            document.getElementById('realtime-panel').style.display = 'block';
+            document.getElementById('rt-submitted').textContent = stats.submittedCount;
+            document.getElementById('rt-total').textContent = stats.totalPlayers;
+            
+            const rtOptions = document.getElementById('rt-options');
+            rtOptions.innerHTML = '';
+            stats.optionsCount.forEach((count, idx) => {
+                const barContainer = document.createElement('div');
+                barContainer.style.background = '#222';
+                barContainer.style.border = '1px solid #555';
+                barContainer.style.borderRadius = '4px';
+                barContainer.style.position = 'relative';
+                barContainer.style.height = '24px';
+                barContainer.style.overflow = 'hidden';
+                
+                const bar = document.createElement('div');
+                const pct = stats.totalPlayers > 0 ? (count / stats.totalPlayers) * 100 : 0;
+                bar.style.width = `${pct}%`;
+                bar.style.height = '100%';
+                bar.style.background = '#0066cc';
+                bar.style.transition = 'width 0.2s';
+                
+                const text = document.createElement('span');
+                text.textContent = `Option ${idx + 1}: ${count}`;
+                text.style.position = 'absolute';
+                text.style.left = '10px';
+                text.style.top = '2px';
+                text.style.fontSize = '0.9rem';
+                text.style.fontWeight = 'bold';
+                text.style.zIndex = '1';
+                
+                barContainer.appendChild(bar);
+                barContainer.appendChild(text);
+                rtOptions.appendChild(barContainer);
             });
         });
 
@@ -343,6 +412,10 @@
         // Flow Activations
         document.getElementById('open-lobby-btn').addEventListener('click', () => {
             window.open('/lobby.html', 'QuizLobby', 'width=1000,height=800,menubar=no,toolbar=no,location=no,status=no');
+        });
+
+        document.getElementById('open-screen-btn').addEventListener('click', () => {
+            window.open('/screen.html', 'QuizScreen', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
         });
 
         document.getElementById('start-game-btn').addEventListener('click', () => {

@@ -35,6 +35,27 @@ const broadcastWaitingPlayers = () => {
     io.emit('waiting_players_update', playerNames);
 };
 
+const broadcastRealtimeStats = () => {
+    if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) return;
+    const q = questions[currentQuestionIndex];
+    
+    let submittedCount = 0;
+    let optionsCount = new Array(q.options.length).fill(0);
+    
+    Object.values(players).forEach(p => {
+        if (p.currentAnswer && p.currentAnswer.length > 0) {
+            submittedCount++;
+            p.currentAnswer.forEach(idx => {
+                if (idx >= 0 && idx < optionsCount.length) {
+                    optionsCount[idx]++;
+                }
+            });
+        }
+    });
+    
+    io.emit('admin_realtime_stats', { submittedCount, optionsCount, totalPlayers: Object.keys(players).length });
+};
+
 // --- WebSocket Event Dictionary Implementation ---
 io.on('connection', (socket) => {
     
@@ -89,6 +110,7 @@ io.on('connection', (socket) => {
                 questionIndex: currentQuestionIndex
             });
             questionStartTime = Date.now();
+            broadcastRealtimeStats();
 
             clearTimeout(questionTimer);
             questionTimer = setTimeout(() => {
@@ -135,6 +157,7 @@ io.on('connection', (socket) => {
             const timeTaken = (Date.now() - questionStartTime) / 1000;
             player.totalTime += timeTaken; 
             player.currentAnswer = indicesArray;
+            broadcastRealtimeStats();
         }
     });
 
@@ -142,6 +165,7 @@ io.on('connection', (socket) => {
         delete players[socket.id];
         broadcastPlayerCount();
         broadcastWaitingPlayers(); 
+        if (questionTimer) broadcastRealtimeStats();
     });
 });
 
