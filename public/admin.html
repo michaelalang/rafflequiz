@@ -162,7 +162,7 @@
             </div>
 
             <div class="admin-panel" id="leaderboard-panel" style="display: none;">
-                <h3>Final Score Ranking</h3>
+                <h3 id="leaderboard-title">Final Score Ranking</h3>
                 <ul id="admin-leaderboard" style="list-style: none; padding: 0;"></ul>
             </div>
         </div>
@@ -255,10 +255,28 @@
         socket.on('game_over', (leaderboard) => {
             const panel = document.getElementById('leaderboard-panel');
             const lbList = document.getElementById('admin-leaderboard');
+            const lbTitle = document.getElementById('leaderboard-title');
+            if (lbTitle) lbTitle.textContent = 'Final Score Ranking';
             panel.style.display = 'block';
             document.getElementById('realtime-panel').style.display = 'none';
             lbList.innerHTML = '';
             leaderboard.forEach((player, index) => {
+                const li = document.createElement('li');
+                li.style.padding = '8px';
+                li.style.borderBottom = '1px solid #555';
+                li.textContent = `#${index + 1} - ${player.name} | Score: ${player.score} | Time: ${player.totalTime.toFixed(2)}s`;
+                lbList.appendChild(li);
+            });
+        });
+
+        socket.on('question_ended', (data) => {
+            const panel = document.getElementById('leaderboard-panel');
+            const lbList = document.getElementById('admin-leaderboard');
+            const lbTitle = document.getElementById('leaderboard-title');
+            if (lbTitle) lbTitle.textContent = 'Current Scores (Game in Progress)';
+            panel.style.display = 'block';
+            lbList.innerHTML = '';
+            data.leaderboard.forEach((player, index) => {
                 const li = document.createElement('li');
                 li.style.padding = '8px';
                 li.style.borderBottom = '1px solid #555';
