@@ -17,8 +17,8 @@ The Raffle Quiz Application is a lightweight, real-time, mobile-responsive web a
 ### 3. User Roles & Views
 
 * **Participant (Mobile-Only Client - `/`):** Connects to the main interface, registers with a display name (supports "Enter" key submission), receives real-time questions, and submits answers. Features massive, touch-optimized vertical control buttons. Players are insulated from mid-game feedback to preserve suspense, but are treated to a full player scrolling leaderboard upon completion.
-* **Quiz Master (Admin Dashboard - `/admin.html`):** Connects to a hidden/secure dashboard. Controls the game flow, manages the live question pool (adding, editing, and defining multiple correct answers), names the event, and monitors the live leaderboard. Input environments leverage vertical scrolling textareas to facilitate long question formats without layout fragmentation.
-* **Audience/Presenter (Lobby Screen - `/lobby.html`):** A presentation view opened by the Quiz Master. Displays the dynamic event name, a join URL, an auto-generated QR code, and a live-updating list of connected participant names.
+* **Quiz Master (Admin Dashboard - `/admin.html`):** Connects to a hidden/secure dashboard. Controls the game flow, manages the live question pool (adding, editing, and defining multiple correct answers), names the event, and monitors the live leaderboard (which updates after every question). The Quiz Master can also push a mid-game leaderboard to the big screen at any time. Input environments leverage vertical scrolling textareas to facilitate long question formats without layout fragmentation.
+* **Audience/Presenter (Lobby Screen - `/lobby.html` / Big Screen - `/screen.html`):** Presentation views opened by the Quiz Master. Displays the dynamic event name, join URL, QR code, and a live-updating list of connected participants. The Big Screen displays live questions, highlights correct answers for 10 seconds post-question, and presents the leaderboards.
 
 ### 4. Core Game Mechanics
 
@@ -29,10 +29,12 @@ The Raffle Quiz Application is a lightweight, real-time, mobile-responsive web a
 * **Time Tracking & Penalties:** * The server logs the exact timestamp when a question is broadcast.
     * When a user selects (or toggles) an answer, the delta time is recorded.
     * **Penalty Mechanic:** If a user changes their answer before the timer expires, the time taken to make the change is *added* to their cumulative time for that question.
-* **Suspense & Leaderboard Logic:** * Players are kept in the dark regarding their standing mid-game. Explicit "Time's Up" messaging is omitted during transitions to keep the interface clean and maintain game-flow suspense.
+* **Suspense & Leaderboard Logic:** * Players are kept in the dark regarding their standing mid-game on their mobile devices, maintaining game-flow suspense. However, the Quiz Master sees live score updates on the admin dashboard after each question.
+    * **Big Screen Answer Reveal:** On the main presentation screen, correct answers are clearly highlighted in green for 10 seconds at the end of each question before transitioning to a waiting state.
+    * **Mid-Game Standings:** The Quiz Master can manually trigger the leaderboard to appear on the big screen at any point between questions.
     * The game automatically calculates the final scoreboard 5 seconds after the final question concludes.
     * Players are ranked primarily in descending order of their Score, and secondarily in ascending order of their Total Answer Time (lower time = higher rank).
-    * **Global Leaderboard Transparency:** Upon game conclusion, the final dashboard view is transmitted to *all* players. Every connected participant can scroll through the entire list of ranks, with their own row explicitly highlighted in Red Hat red (`#EE0000`) for rapid self-identification. Top 3 players receive medal icons (🥇, 🥈, 🥉).
+    * **Persistent Game Over State:** Upon game conclusion, the final dashboard view is transmitted to *all* players and remains visible for any late-joiners or page refreshes until a new game is started. Every connected participant can scroll through the list, with their own row highlighted in Red Hat red (`#EE0000`). Top 3 players receive medal icons (🥇, 🥈, 🥉).
 * **Replayability:** The Quiz Master can click "Start/Replay Game" at any time to clear current player scores and timers and run through the existing question pool again.
 
 ### 5. WebSocket Event Dictionary
@@ -50,6 +52,8 @@ The application relies on the following Socket.IO events to sync the state betwe
 | `admin_start_game` | Admin -> Server | None | Signals the server to reset scores, timers, and prepare the first question. |
 | `game_started` | Server -> Client | None | Broadcasts to participants that the game is initializing. |
 | `admin_next_question` | Admin -> Server | None | Quiz master triggers the next question in the array. |
+| `admin_show_leaderboard` | Admin -> Server | None | Quiz master triggers the mid-game leaderboard display. |
+| `show_midgame_leaderboard`| Server -> All | `Array` (Leaderboard) | Broadcasts current standings to clients/screens for mid-game review. |
 | `new_question` | Server -> Client | `Object` (Question data) | Broadcasts question text, options, and time limit. |
 | `submit_answer` | Client -> Server | `Array` (Indices) | Participant sends their selected option indices. |
 | `question_ended` | Server -> All | `Object` (Result data) | Broadcasts state closure; transitions clients to the silent waiting interface. |
