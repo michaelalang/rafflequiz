@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Lobby</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/patternfly/4.224.2/patternfly.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Text:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body, html { 
+            height: 100%; 
+            background-color: #151515; 
+            color: #ffffff;
+            font-family: 'Red Hat Text', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lobby-container {
+            background-color: #212427;
+            border-top: 6px solid #EE0000;
+            border-radius: 8px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+            padding: 3rem;
+            text-align: center;
+            max-width: 800px;
+            width: 90%;
+        }
+
+        h1 { font-size: 3rem; font-weight: bold; margin-bottom: 1rem; color: #ffffff; }
+        .rh-red { color: #EE0000; }
+
+        .qr-wrapper {
+            background-color: #ffffff;
+            padding: 1rem;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 2rem 0;
+        }
+
+        .join-url {
+            font-size: 1.5rem;
+            color: #d2d2d2;
+            margin-bottom: 2rem;
+            font-family: monospace;
+            background-color: #1c1e21;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+        }
+
+        .player-list {
+            margin-top: 2rem;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            padding: 1rem;
+            background-color: #1c1e21;
+            border-radius: 8px;
+        }
+
+        .waiting-badge {
+            display: inline-block;
+            background-color: #EE0000;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin: 5px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="lobby-container">
+        <h1>Join the <span class="rh-red">Red Hat</span> Quiz!</h1>
+        <p style="font-size: 1.2rem; color: #d2d2d2;">Scan the QR code or visit the URL below to join the game.</p>
+        
+        <div class="qr-wrapper" id="qrcode"></div>
+        
+        <div class="join-url" id="url-display"></div>
+
+        <h3 style="font-size: 1.5rem; margin-top: 1rem; color: #ffffff;">Players in Lobby: <span class="rh-red" id="lobby-count">0</span></h3>
+        <div class="player-list" id="waiting-players-list">
+            <p style="text-align: center; color: #d2d2d2; font-style: italic;">Waiting for players to join...</p>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Generate Dynamic QR Code pointing to the base URL (which serves index.html)
+        const joinUrl = window.location.origin; 
+        document.getElementById('url-display').textContent = joinUrl;
+
+        new QRCode(document.getElementById("qrcode"), {
+            text: joinUrl,
+            width: 250,
+            height: 250,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.L
+        });
+
+        // Connect to WebSockets to listen for players joining
+        const socket = io();
+        const waitingPlayersList = document.getElementById('waiting-players-list');
+        const lobbyCount = document.getElementById('lobby-count');
+
+        socket.on('waiting_players_update', (names) => {
+            lobbyCount.textContent = names.length;
+            if (names.length === 0) {
+                waitingPlayersList.innerHTML = '<p style="text-align: center; color: #d2d2d2; font-style: italic;">Waiting for players to join...</p>';
+            } else {
+                waitingPlayersList.innerHTML = names.map(n => `<span class="waiting-badge">${n}</span>`).join('');
+            }
+        });
+
+        // If the game actually starts while the lobby screen is open, you could optionally auto-close it
+        socket.on('new_question', () => {
+            document.querySelector('.lobby-container h1').innerHTML = 'Game in <span class="rh-red">Progress</span>...';
+            document.querySelector('.lobby-container p').textContent = 'Please look at your mobile devices.';
+        });
+    </script>
+</body>
+</html>

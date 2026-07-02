@@ -1,0 +1,13 @@
+{
+  "name": "raffle-quiz-app",
+  "version": "1.0.0",
+  "description": "Real-time Raffle Quiz Application with PatternFly UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
+}

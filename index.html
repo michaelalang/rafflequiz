@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Raffle Quiz</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@4.224.2/patternfly.min.css" crossorigin="anonymous">
+    
+    <style>
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #212427;
+            color: #ffffff;
+            font-family: var(--pf-global--FontFamily--sans-serif, sans-serif);
+            overscroll-behavior-y: contain; 
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        .view { 
+            display: none; 
+            flex: 1;
+            flex-direction: column;
+            justify-content: center;
+            padding: 24px;
+        }
+        .view.active { display: flex; }
+
+        h1, h2, h3 { 
+            color: #ffffff; 
+            text-align: center; 
+            font-size: 2rem;
+            margin-bottom: 24px;
+            font-weight: bold;
+        }
+        
+        p { font-size: 1.2rem; text-align: center; line-height: 1.5; }
+
+        /* Login Screen */
+        .input-group { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+        input[type="text"] {
+            width: 100%; height: 80px; font-size: 1.5rem; text-align: center;
+            border-radius: 12px; border: 2px solid #555; background-color: #333; color: white; outline: none;
+        }
+        input[type="text"]:focus { border-color: #EE0000; }
+        
+        .primary-btn {
+            width: 100%; min-height: 80px; background-color: #EE0000; color: #ffffff;
+            border: none; font-size: 1.5rem; font-weight: bold; border-radius: 12px; cursor: pointer;
+            transition: background-color 0.2s; touch-action: manipulation;
+        }
+        .primary-btn:active { background-color: #a30000; }
+
+        /* Options */
+        .options-container { display: flex; flex-direction: column; gap: 16px; width: 100%; margin-top: 24px; }
+        .quiz-option-btn {
+            width: 100%; background-color: #333333; color: #ffffff; border: 3px solid #555555;
+            border-radius: 12px; min-height: 100px; font-size: 1.5rem; font-weight: bold;
+            padding: 16px; cursor: pointer; text-align: center; transition: all 0.1s ease;
+            touch-action: manipulation; word-wrap: break-word; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .quiz-option-btn.selected {
+            background-color: #EE0000; border-color: #ffffff; box-shadow: inset 0 4px 8px rgba(0,0,0,0.5);
+            transform: translateY(2px);
+        }
+
+        /* Utility */
+        #timer-display { font-size: 2rem; text-align: center; margin-bottom: 20px; font-weight: bold; color: #ffcccc; }
+        
+        /* Leaderboard Scroll Container */
+        .placement-card { 
+            background: #2b2b2b; 
+            padding: 20px; 
+            border-radius: 12px; 
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-view" class="view active">
+            <h1>Join Quiz</h1>
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Tap to enter name..." autocomplete="off">
+                <button id="join-btn" class="primary-btn">Let's Go!</button>
+            </div>
+        </div>
+
+        <div id="waiting-view" class="view">
+            <h2>You're in!</h2>
+            <p id="waiting-text">Look at the main screen.<br><br>The Quiz Master will start the game shortly...</p>
+        </div>
+
+        <div id="question-view" class="view">
+            <h2 id="question-text"></h2>
+            <div id="timer-display"><span id="time-left">--</span>s</div>
+            <div id="options-container" class="options-container"></div>
+        </div>
+
+        <div id="game-over-view" class="view">
+            <h2>Final Results</h2>
+            <div id="final-results" class="placement-card">
+                </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const views = {
+            login: document.getElementById('login-view'),
+            waiting: document.getElementById('waiting-view'),
+            question: document.getElementById('question-view'),
+            gameOver: document.getElementById('game-over-view')
+        };
+        
+        const playerNameInput = document.getElementById('player-name');
+        const joinBtn = document.getElementById('join-btn');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const timeLeftSpan = document.getElementById('time-left');
+        const finalResults = document.getElementById('final-results');
+        const waitingText = document.getElementById('waiting-text');
+
+        let selectedAnswers = [];
+        let localTimerInterval;
+
+        function switchView(viewName) {
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            if(views[viewName]) views[viewName].classList.add('active');
+            if(viewName === 'login') setTimeout(() => playerNameInput.focus(), 100);
+        }
+
+        function attemptJoin() {
+            const name = playerNameInput.value.trim();
+            if (name) {
+                playerNameInput.blur(); 
+                socket.emit('join_game', name);
+            }
+        }
+
+        joinBtn.addEventListener('click', attemptJoin);
+        playerNameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') attemptJoin(); });
+
+        socket.on('joined_successfully', () => switchView('waiting'));
+
+        socket.on('game_started', () => {
+            switchView('waiting');
+            waitingText.innerHTML = "Game is starting!<br><br>Get ready...";
+        });
+
+        socket.on('new_question', (questionData) => {
+            switchView('question');
+            questionText.textContent = questionData.text;
+            optionsContainer.innerHTML = '';
+            selectedAnswers = []; 
+            
+            clearInterval(localTimerInterval);
+            let timeLeft = questionData.timeLimit || 15;
+            timeLeftSpan.textContent = timeLeft;
+            
+            localTimerInterval = setInterval(() => {
+                timeLeft--;
+                if(timeLeft >= 0) timeLeftSpan.textContent = timeLeft;
+                if(timeLeft <= 0) clearInterval(localTimerInterval);
+            }, 1000);
+
+            questionData.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-option-btn';
+                btn.textContent = option;
+                btn.dataset.index = index;
+
+                btn.addEventListener('click', function() {
+                    const optionIndex = parseInt(this.dataset.index);
+                    
+                    if (selectedAnswers.includes(optionIndex)) {
+                        selectedAnswers = selectedAnswers.filter(i => i !== optionIndex);
+                        this.classList.remove('selected');
+                    } else {
+                        selectedAnswers.push(optionIndex);
+                        this.classList.add('selected');
+                    }
+                    socket.emit('submit_answer', selectedAnswers);
+                });
+                optionsContainer.appendChild(btn);
+            });
+        });
+
+        socket.on('question_ended', () => {
+            clearInterval(localTimerInterval);
+            switchView('waiting');
+            waitingText.innerHTML = "Waiting for the Quiz Master...";
+        });
+
+        socket.on('game_over', (leaderboard) => {
+            clearInterval(localTimerInterval);
+            switchView('gameOver');
+            
+            const myName = playerNameInput.value.trim();
+            let leaderboardHTML = '<div style="display:flex; flex-direction:column; gap:10px;">';
+
+            leaderboard.forEach((player, index) => {
+                const rank = index + 1;
+                let medal = "";
+                if (rank === 1) medal = "🥇 ";
+                else if (rank === 2) medal = "🥈 ";
+                else if (rank === 3) medal = "🥉 ";
+
+                const isMe = (player.name === myName);
+                const bgColor = isMe ? '#EE0000' : '#444444';
+                const textColor = '#ffffff';
+
+                leaderboardHTML += `
+                    <div style="background: ${bgColor}; color: ${textColor}; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; font-size: 1.2rem;">${medal}#${rank} ${player.name}</span>
+                        <span style="text-align: right; font-size: 0.95rem; line-height: 1.2;">
+                            <strong>${player.score} pts</strong><br>
+                            ${player.totalTime.toFixed(2)}s
+                        </span>
+                    </div>
+                `;
+            });
+
+            leaderboardHTML += '</div>';
+            finalResults.innerHTML = leaderboardHTML;
+        });
+
+        socket.on('disconnect', () => {
+            switchView('login');
+            playerNameInput.value = '';
+            alert("Disconnected from server. Please rejoin.");
+        });
+    </script>
+</body>
+</html>

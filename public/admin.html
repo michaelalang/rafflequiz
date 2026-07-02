@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Master Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@4.224.2/patternfly.min.css" crossorigin="anonymous">
+    <style>
+        body {
+            background-color: #212427; /* Red Hat Dark Charcoal */
+            color: #ffffff;
+            font-family: var(--pf-global--FontFamily--sans-serif, sans-serif);
+            margin: 0;
+            padding: 20px;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .admin-panel {
+            background: #333333;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .primary-btn {
+            background-color: #EE0000; /* Red Hat Accent */
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .primary-btn:hover { background-color: #cc0000; }
+        
+        .secondary-btn {
+            background-color: #4f5255;
+            color: #ffffff;
+            border: none;
+            padding: 10px 15px;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .secondary-btn:hover { background-color: #6a6e73; }
+
+        /* Large Text Areas for Scrolling-Free Reading */
+        .admin-textarea {
+            width: 100%;
+            min-height: 80px; 
+            padding: 10px;
+            font-size: 1.1rem;
+            font-family: inherit;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #222;
+            color: #fff;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .admin-textarea:focus { border-color: #EE0000; outline: none; }
+        .question-box {
+            min-height: 120px; 
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .option-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .option-row label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #aaa;
+            user-select: none;
+            min-width: 60px;
+        }
+        .option-row input[type="checkbox"] {
+            transform: scale(1.5);
+            margin-top: 8px;
+            cursor: pointer;
+        }
+        .time-limit-input {
+            width: 100px;
+            padding: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        ul#question-list {
+            list-style: none;
+            padding: 0;
+        }
+        ul#question-list li {
+            background: #444;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 4px solid #EE0000;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        ul#question-list li:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-header">
+        <h1>Quiz Master Dashboard</h1>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <button id="open-lobby-btn" class="secondary-btn" style="background-color: #008800; font-weight: bold; padding: 10px 20px;">Open Lobby (QR)</button>
+            <h2 style="margin:0;">Players Connected: <span id="player-count">0</span></h2>
+        </div>
+    </div>
+
+    <div class="grid-layout">
+        <div>
+            <div class="admin-panel">
+                <h3>Game Controls</h3>
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button id="start-game-btn" class="primary-btn">Start / Replay Game</button>
+                    <button id="next-question-btn" class="primary-btn" style="background-color: #0066cc;">Push Next Question</button>
+                </div>
+            </div>
+
+            <div class="admin-panel">
+                <h3>Live Question Pool <span style="font-size:0.9rem; font-weight:normal; color:#aaa;">(Click any item to edit)</span></h3>
+                <ul id="question-list">
+                    <li><i>No questions added yet.</i></li>
+                </ul>
+            </div>
+        </div>
+
+        <div>
+            <div class="admin-panel">
+                <h3 id="editor-title">Add New Question</h3>
+                <label style="display:block; margin-bottom:5px; font-weight:bold;">Question Text:</label>
+                <textarea id="q-text" class="admin-textarea question-box" placeholder="Enter a long or detailed question here..."></textarea>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="font-weight:bold;">Time Limit (seconds): </label>
+                    <input type="number" id="q-time" class="time-limit-input" value="15">
+                </div>
+
+                <h4 style="margin-bottom: 10px;">Options (Check all boxes that are correct)</h4>
+                
+                <div class="option-row">
+                    <label>Correct<input type="checkbox" class="q-correct" data-index="0"></label>
+                    <textarea class="admin-textarea q-option" id="opt-0" placeholder="Option 1 text..."></textarea>
+                    <button type="button" class="secondary-btn remove-answer-btn" data-target="0">Remove</button>
+                </div>
+                <div class="option-row">
+                    <label>Correct<input type="checkbox" class="q-correct" data-index="1"></label>
+                    <textarea class="admin-textarea q-option" id="opt-1" placeholder="Option 2 text..."></textarea>
+                    <button type="button" class="secondary-btn remove-answer-btn" data-target="1">Remove</button>
+                </div>
+                <div class="option-row">
+                    <label>Correct<input type="checkbox" class="q-correct" data-index="2"></label>
+                    <textarea class="admin-textarea q-option" id="opt-2" placeholder="Option 3 text (optional)..."></textarea>
+                    <button type="button" class="secondary-btn remove-answer-btn" data-target="2">Remove</button>
+                </div>
+                <div class="option-row">
+                    <label>Correct<input type="checkbox" class="q-correct" data-index="3"></label>
+                    <textarea class="admin-textarea q-option" id="opt-3" placeholder="Option 4 text (optional)..."></textarea>
+                    <button type="button" class="secondary-btn remove-answer-btn" data-target="3">Remove</button>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button id="save-question-btn" class="primary-btn" style="flex:1;">Save Question</button>
+                    <button id="cancel-edit-btn" class="secondary-btn" style="display:none;">Cancel Edit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Target Global In-Memory Tracking State Variable
+        let currentEditingIndex = -1; 
+        let rawQuestionsCache = [];
+
+        // DOM elements
+        const playerCountSpan = document.getElementById('player-count');
+        const questionList = document.getElementById('question-list');
+        const editorTitle = document.getElementById('editor-title');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const saveQuestionBtn = document.getElementById('save-question-btn');
+        
+        const qText = document.getElementById('q-text');
+        const qTime = document.getElementById('q-time');
+        const qOptions = document.querySelectorAll('.q-option');
+        const qCorrect = document.querySelectorAll('.q-correct');
+
+        // Incoming Synchronizations
+        socket.on('update_player_count', (count) => {
+            playerCountSpan.textContent = count;
+        });
+
+        socket.on('update_questions_list', (questions) => {
+            rawQuestionsCache = questions || [];
+            questionList.innerHTML = '';
+            
+            if (rawQuestionsCache.length === 0) {
+                questionList.innerHTML = '<li><i>No questions added yet.</i></li>';
+                return;
+            }
+            
+            rawQuestionsCache.forEach((q, index) => {
+                const li = document.createElement('li');
+                li.textContent = `Q${index + 1}: ${q.text} (${q.timeLimit}s)`;
+                // Click to populate the editor form setup
+                li.addEventListener('click', () => loadQuestionIntoEditor(index));
+                questionList.appendChild(li);
+            });
+        });
+
+        // Answer Remove / Clear Button Actions
+        document.querySelectorAll('.remove-answer-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetIdx = parseInt(e.currentTarget.dataset.target);
+                // Shift options up to fill the gap
+                for (let i = targetIdx; i < 3; i++) {
+                    const currentOpt = document.getElementById(`opt-${i}`);
+                    const nextOpt = document.getElementById(`opt-${i+1}`);
+                    const currentChk = document.querySelector(`.q-correct[data-index="${i}"]`);
+                    const nextChk = document.querySelector(`.q-correct[data-index="${i+1}"]`);
+                    
+                    currentOpt.value = nextOpt.value;
+                    currentChk.checked = nextChk.checked;
+                }
+                // Clear the last one
+                document.getElementById('opt-3').value = '';
+                document.querySelector('.q-correct[data-index="3"]').checked = false;
+            });
+        });
+
+        // Load targeted cached data right back up into the layout elements
+        function loadQuestionIntoEditor(index) {
+            const question = rawQuestionsCache[index];
+            if (!question) return;
+
+            currentEditingIndex = index;
+            editorTitle.textContent = `Editing Question #${index + 1}`;
+            saveQuestionBtn.textContent = "Update Question";
+            cancelEditBtn.style.display = "inline-block";
+
+            qText.value = question.text;
+            qTime.value = question.timeLimit || 15;
+
+            // Reset matching fields completely first
+            qOptions.forEach(opt => opt.value = '');
+            qCorrect.forEach(chk => chk.checked = false);
+
+            // Match values against saved arrays
+            question.options.forEach((optText, optIdx) => {
+                if (qOptions[optIdx]) {
+                    qOptions[optIdx].value = optText;
+                }
+                if (question.correct && question.correct.includes(optIdx) && qCorrect[optIdx]) {
+                    qCorrect[optIdx].checked = true;
+                }
+            });
+        }
+
+        function resetForm() {
+            currentEditingIndex = -1;
+            editorTitle.textContent = "Add New Question";
+            saveQuestionBtn.textContent = "Save Question";
+            cancelEditBtn.style.display = "none";
+            
+            qText.value = '';
+            qTime.value = '15';
+            qOptions.forEach(opt => opt.value = '');
+            qCorrect.forEach(chk => chk.checked = false);
+        }
+
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // Save Form Logic
+        saveQuestionBtn.addEventListener('click', () => {
+            const text = qText.value.trim();
+            const timeLimit = parseInt(qTime.value) || 15;
+            
+            const options = [];
+            const correct = [];
+
+            // Read options linearly to accurately map array indexes
+            qOptions.forEach((optEl, index) => {
+                const optText = optEl.value.trim();
+                if (optText !== "") {
+                    options.push(optText);
+                    if (qCorrect[index] && qCorrect[index].checked) {
+                        correct.push(options.length - 1); 
+                    }
+                }
+            });
+
+            // Structural Validation Constraints
+            if (text && options.length >= 2 && correct.length >= 1) {
+                // Incorporate strict index requirements requested by specifications
+                const newQuestion = { 
+                    text, 
+                    options, 
+                    correct, 
+                    timeLimit 
+                };
+                
+                // Transmit straight into server instance logic
+                socket.emit('admin_save_question', { index: currentEditingIndex, question: newQuestion });
+                resetForm();
+            } else {
+                alert("Please build a valid question: Ensure text is filled out, at least 2 options are present, and at least 1 checkbox is ticked as correct.");
+            }
+        });
+
+        // Flow Activations
+        document.getElementById('open-lobby-btn').addEventListener('click', () => {
+            window.open('/lobby.html', 'QuizLobby', 'width=1000,height=800,menubar=no,toolbar=no,location=no,status=no');
+        });
+
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+            if (confirm("Reset current scores and initialize the loop?")) {
+                socket.emit('admin_start_game');
+            }
+        });
+
+        document.getElementById('next-question-btn').addEventListener('click', () => {
+            socket.emit('admin_next_question');
+        });
+    </script>
+</body>
+</html>

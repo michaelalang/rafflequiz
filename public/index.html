@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Raffle Quiz</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@4.224.2/patternfly.min.css" crossorigin="anonymous">
+    
+    <style>
+        /* Base branding: Dark charcoal background */
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #212427;
+            color: #ffffff;
+            font-family: var(--pf-global--FontFamily--sans-serif, sans-serif);
+            /* Prevents pull-to-refresh on mobile */
+            overscroll-behavior-y: contain; 
+        }
+
+        /* Full-screen app-like container */
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* Views take up the whole screen and center content automatically */
+        .view { 
+            display: none; 
+            flex: 1;
+            flex-direction: column;
+            justify-content: center;
+            padding: 3vh 5vw;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .view.active { 
+            display: flex; 
+        }
+
+        /* Typography optimized for mobile reading */
+        h1, h2, h3 { 
+            color: #ffffff; 
+            text-align: center; 
+            font-size: clamp(1.2rem, 3.5vh, 1.8rem);
+            margin-top: 0;
+            margin-bottom: 2vh;
+            font-weight: bold;
+            flex-shrink: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        /* --- MASSIVE MOBILE LOGIN SCREEN --- */
+        .input-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 16px; 
+            width: 100%;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            height: 80px; /* Huge touch target */
+            font-size: 1.5rem;
+            text-align: center;
+            border-radius: 12px;
+            border: 2px solid #555;
+            background-color: #333;
+            color: white;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #EE0000;
+        }
+        
+        /* Standard Red Hat Accent Button */
+        .primary-btn {
+            width: 100%;
+            min-height: 80px;
+            background-color: #EE0000;
+            color: #ffffff;
+            border: none;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            touch-action: manipulation;
+        }
+        .primary-btn:active { background-color: #a30000; }
+
+        /* --- MASSIVE VERTICAL OPTION BUTTONS --- */
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5vh;
+            width: 100%;
+            margin-top: 1vh;
+            flex: 1; /* allow it to dynamically fill remaining screen height */
+            min-height: 0; /* crucial for flex shrinking below content height */
+            overflow-y: auto;
+        }
+
+        .quiz-option-btn {
+            width: 100%;
+            flex: 1; /* flexibly grow and shrink */
+            background-color: #333333; /* Darker neutral base for contrast */
+            color: #ffffff;
+            border: 3px solid #555555;
+            border-radius: 12px;
+            min-height: min-content; /* Ensure it never shrinks smaller than its text */
+            font-size: clamp(0.85rem, 2.5vh, 1.4rem); /* Allow text to scale down further to prevent scrolling */
+            font-weight: bold;
+            padding: 1.5vh 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: all 0.1s ease;
+            touch-action: manipulation; 
+            word-wrap: break-word;
+            /* Box shadow for a 3D pop effect */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Selected State (Red Hat Accent) */
+        .quiz-option-btn.selected {
+            background-color: #EE0000;
+            border-color: #ffffff;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.5);
+            transform: translateY(2px); /* Physical push-down effect */
+        }
+
+        /* Utility */
+        #timer-display { 
+            font-size: clamp(1.2rem, 4vh, 1.8rem); 
+            text-align: center; 
+            margin-bottom: 1vh; 
+            font-weight: bold; 
+            color: #ffcccc; 
+            flex-shrink: 0;
+        }
+        
+        .placement-card { 
+            background: #333; 
+            padding: 30px; 
+            border-radius: 12px; 
+            text-align: center; 
+        }
+        .placement-card p {
+            font-size: 1.5rem;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="login-view" class="view active">
+            <h1>Join Quiz</h1>
+            <div class="input-group">
+                <input type="text" id="player-name" placeholder="Tap to enter name..." autocomplete="off">
+                <button id="join-btn" class="primary-btn">Let's Go!</button>
+            </div>
+        </div>
+
+        <div id="waiting-view" class="view">
+            <p id="waiting-text" style="font-size: 1.5rem;">Look at the main screen.<br><br>The Quiz Master will start the game shortly...</p>
+        </div>
+
+        <div id="question-view" class="view">
+            <h2 id="question-text"></h2>
+            <div id="timer-display"><span id="time-left">--</span>s</div>
+            
+            <div id="options-container" class="options-container">
+                </div>
+        </div>
+
+        <div id="game-over-view" class="view">
+            <h2>Game Over!</h2>
+            <div id="final-results" class="placement-card">
+                </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // DOM Elements
+        const views = {
+            login: document.getElementById('login-view'),
+            waiting: document.getElementById('waiting-view'),
+            question: document.getElementById('question-view'),
+            gameOver: document.getElementById('game-over-view')
+        };
+        
+        const playerNameInput = document.getElementById('player-name');
+        const joinBtn = document.getElementById('join-btn');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const timeLeftSpan = document.getElementById('time-left');
+        const finalResults = document.getElementById('final-results');
+        const waitingText = document.getElementById('waiting-text');
+
+        let selectedAnswers = [];
+        let localTimerInterval;
+
+        // --- Helper Functions ---
+        function switchView(viewName) {
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            if(views[viewName]) views[viewName].classList.add('active');
+            
+            // Auto-focus input on login screen for mobile convenience
+            if(viewName === 'login') {
+                setTimeout(() => playerNameInput.focus(), 100);
+            }
+        }
+
+        // --- Login Logic ---
+        function attemptJoin() {
+            const name = playerNameInput.value.trim();
+            if (name) {
+                // Hide keyboard on mobile after pressing submit
+                playerNameInput.blur(); 
+                socket.emit('join_game', name);
+            }
+        }
+
+        joinBtn.addEventListener('click', attemptJoin);
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') attemptJoin(); // Supports "Enter" key submission
+        });
+
+        // --- Socket Events ---
+        
+        socket.on('joined_successfully', (data) => {
+            switchView('waiting');
+            if (data && data.isLate) {
+                waitingText.innerHTML = "You joined a bit late and missed some questions!<br><br>Waiting for the next one...";
+            } else {
+                waitingText.innerHTML = "Look at the main screen.<br><br>The Quiz Master will start the game shortly...";
+            }
+        });
+
+        socket.on('game_started', () => {
+            switchView('waiting');
+            waitingText.innerHTML = "Game is starting!<br><br>Get ready...";
+        });
+
+        socket.on('new_question', (questionData) => {
+            switchView('question');
+            questionText.textContent = questionData.text;
+            optionsContainer.innerHTML = '';
+            selectedAnswers = []; // Reset selections
+            
+            // Handle local visual timer
+            clearInterval(localTimerInterval);
+            let timeLeft = questionData.timeLimit || 15;
+            timeLeftSpan.textContent = timeLeft;
+            
+            localTimerInterval = setInterval(() => {
+                timeLeft--;
+                if(timeLeft >= 0) timeLeftSpan.textContent = timeLeft;
+                if(timeLeft <= 0) clearInterval(localTimerInterval);
+            }, 1000);
+
+            // Generate Massive Mobile Vertical Buttons
+            questionData.options.forEach((option, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-option-btn';
+                btn.textContent = option;
+                btn.dataset.index = index;
+
+                btn.addEventListener('click', function() {
+                    const optionIndex = parseInt(this.dataset.index);
+                    
+                    if (selectedAnswers.includes(optionIndex)) {
+                        selectedAnswers = selectedAnswers.filter(i => i !== optionIndex);
+                        this.classList.remove('selected');
+                    } else {
+                        selectedAnswers.push(optionIndex);
+                        this.classList.add('selected');
+                    }
+
+                    // Emit delta time array immediately
+                    socket.emit('submit_answer', selectedAnswers);
+                });
+
+                optionsContainer.appendChild(btn);
+            });
+        });
+
+        socket.on('question_ended', (resultData) => {
+            clearInterval(localTimerInterval);
+            switchView('waiting');
+            // Participants do not receive mid-game feedback to build suspense
+            waitingText.innerHTML = "Waiting for the Quiz Master...";
+        });
+
+        socket.on('game_over', (leaderboard) => {
+            clearInterval(localTimerInterval);
+            switchView('gameOver');
+            
+            // Find current player in leaderboard
+            const myName = playerNameInput.value.trim();
+            const myRankIndex = leaderboard.findIndex(p => p.name === myName);
+            
+            if (myRankIndex !== -1) {
+                const myData = leaderboard[myRankIndex];
+                const rank = myRankIndex + 1;
+                
+                let medal = "";
+                if (rank === 1) medal = "🥇";
+                else if (rank === 2) medal = "🥈";
+                else if (rank === 3) medal = "🥉"; // Top 3 receive medals
+
+                finalResults.innerHTML = `
+                    <h3>${medal} Rank: #${rank}</h3>
+                    <p>Score: <strong>${myData.score}</strong> pts</p>
+                    <p>Time: ${myData.totalTime.toFixed(2)}s</p>
+                `;
+            } else {
+                finalResults.innerHTML = `<p>Thanks for playing!</p>`;
+            }
+        });
+
+        // Connection error handling (ephemeral server restarts)
+        socket.on('disconnect', () => {
+            switchView('login');
+            playerNameInput.value = '';
+            alert("Disconnected from server. Please rejoin.");
+        });
+    </script>
+</body>
+</html>
